@@ -1,0 +1,99 @@
+from pygame import *
+init()
+window = display.set_mode((800, 600))
+display.set_caption("небоскрёб")
+class Player(sprite.Sprite):
+    def __init__(self, x, y, scale, speed):
+        sprite.Sprite.__init__(self)
+        self.direction = 1
+        self.flip = False
+        self.jump = False
+        self.in_air = True
+        self.vel_y = 0
+        self.list_animation = []
+        self.index = 0
+        self.action = 0
+        self.update_time = time.get_ticks()
+        list_temp = []
+        img = image.load("animation/1.png.png")
+        img = transform.scale(img, scale)
+        self.list_animation.append([img])
+        for i in range(1, 5):
+            img = image.load(f"animation/{i}.png.png")
+            img = transform.scale(img, scale)
+            list_temp.append(img)
+        self.list_animation.append(list_temp)
+        self.image = self.list_animation[self.action][self.index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.speed = speed
+    def move(self, moving_left, moving_right):
+        dx = 0
+        dy = 0
+        if moving_left:
+            dx = -self.speed
+            self.flip = True
+            self.direction = -1
+        if moving_right:
+            dx = self.speed
+            self.flip = False
+            self.direction = 1
+        if self.jump and self.in_air == False:
+            self.vel_y = -11
+            self.jump = False
+            self.in_air = True
+        self.vel_y += gravity
+        dy += self.vel_y
+        if self.rect.bottom + dy > 530:
+            dy = 530 - self.rect.bottom
+            self.in_air = False
+        self.rect.x += dx
+        self.rect.y += dy
+    def update_animation(self):
+        animation_coldown = 100
+        self.image = self.list_animation[self.action][self.index]
+        if time.get_ticks() - self.update_time > animation_coldown:
+            self.update_time = time.get_ticks()
+            self.index += 1
+        if self.index == len(self.list_animation[self.action]):
+            self.index = 0
+    def update_action(self, new_action):
+        if self.action != new_action:
+            self.action = new_action
+            self.update_time = time.get_ticks()
+            self.index = 0
+    def draw(self):
+        window.blit(transform.flip(self.image, self.flip, False), self.rect)
+clock = time.Clock()
+player = Player(50, 530, (30, 60), 5)
+move_left = False
+move_right = False
+gravity = 0.75
+while True:
+    window.fill((0, 0, 0))
+    player.move(move_left, move_right)
+    player.draw()
+    player.update_animation()
+    if player.in_air:
+        player.update_action(0)
+    elif move_left or move_right:
+        player.update_action(1)
+    else:
+        player.update_action(0)
+    for EVENT in event.get():
+        if EVENT.type == QUIT:
+            exit()
+        if EVENT.type == KEYDOWN:
+            if EVENT.key == K_LEFT:
+                move_left = True
+            if EVENT.key == K_RIGHT:
+                move_right = True
+            if EVENT.key == K_SPACE:
+                player.jump = True
+        if EVENT.type == KEYUP:
+            if EVENT.key == K_LEFT:
+                move_left = False
+            if EVENT.key == K_RIGHT:
+                move_right = False
+    clock.tick(60)
+    display.update()
