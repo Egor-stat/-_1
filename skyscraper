@@ -13,6 +13,8 @@ class Player(sprite.Sprite):
         self.list_animation = []
         self.index = 0
         self.action = 0
+        self.wall_jump = False
+        self.up_or_down = False
         self.update_time = time.get_ticks()
         list_temp = []
         img = image.load("animation/1.png.png")
@@ -26,10 +28,15 @@ class Player(sprite.Sprite):
         self.image = self.list_animation[self.action][self.index]
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
         self.speed = speed
     def move(self, moving_left, moving_right):
+        screen_scroll_x = 0
+        screen_scroll_y = 0
         dx = 0
         dy = 0
+        keys = key.get_pressed()
         if moving_left:
             dx = -self.speed
             self.flip = True
@@ -38,17 +45,59 @@ class Player(sprite.Sprite):
             dx = self.speed
             self.flip = False
             self.direction = 1
-        if self.jump and self.in_air == False:
+        if self.jump and self.in_air == False or self.wall_jump and moving_left or self.wall_jump and moving_right:
             self.vel_y = -11
             self.jump = False
             self.in_air = True
+            self.wall_jump = False
         self.vel_y += gravity
         dy += self.vel_y
-        if self.rect.bottom + dy > 530:
-            dy = 530 - self.rect.bottom
-            self.in_air = False
+        for tile in collision_list:
+            if tile.colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
+                dx = 0
+                if keys[K_SPACE]:
+                    dy -= self.vel_y
+                    self.wall_jump = True
+                    self.up_or_down = True
+                else:
+                    if self.up_or_down:
+                        self.up_or_down = False
+                        dy -= self.vel_y
+                        self.vel_y = 0
+            else:
+                if not moving_left and not moving_right:
+                    self.wall_jump = False
+                    if self.up_or_down:
+                        self.up_or_down = False
+                        self.vel_y = 0
+            if tile.colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
+                if self.vel_y < 0:
+                    self.vel_y = 0
+                    dy = tile.bottom - self.rect.top
+                elif self.vel_y >= 0:
+                    self.vel_y = 0
+                    self.in_air = False
+                    dy = tile.top - self.rect.bottom
         self.rect.x += dx
         self.rect.y += dy
+        if self.rect.right > 800 - scroll_thresh and moving_right or self.rect.left < scroll_thresh and moving_left:
+            self.rect.x -= dx
+            screen_scroll_x = -dx
+        if self.rect.top < scroll_thresh:
+            if dy > 0:
+                self.rect.y += dy
+                screen_scroll_y = dy
+            if dy < 0:
+                self.rect.y -= dy
+                screen_scroll_y = -dy
+        if self.rect.bottom > 600 - scroll_thresh:
+            if dy < 0:
+                self.rect.y += dy
+                screen_scroll_y = dy
+            if dy > 0:
+                self.rect.y -= dy
+                screen_scroll_y = -dy
+        return screen_scroll_x, screen_scroll_y
     def update_animation(self):
         animation_coldown = 100
         self.image = self.list_animation[self.action][self.index]
@@ -64,14 +113,55 @@ class Player(sprite.Sprite):
             self.index = 0
     def draw(self):
         window.blit(transform.flip(self.image, self.flip, False), self.rect)
+        for tile in collision_list:
+            tile[0] += screen_scroll_x
+            tile[1] += screen_scroll_y
+            window.blit(plat, tile)
+matrix_map = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1],
+    [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1],
+    [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1],
+    [1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1],
+    [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    [1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    [1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1],
+    [1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1],
+    [1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1],
+    [1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1],
+    [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1],
+    [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1],
+    [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1],
+    [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+    [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+]
+world_map = set()
+collision_list = []
+for y, row in enumerate(matrix_map):
+    for x, char in enumerate(row):
+        if char:
+            world_map.add((x * 40, y * 40))
+            collision_list.append(Rect(x * 40, y * 40, 40, 40))
 clock = time.Clock()
-player = Player(50, 530, (30, 60), 5)
+player = Player(60, 80, (30, 60), 5)
+plat = transform.scale(image.load("12.png"), (40, 40))
 move_left = False
 move_right = False
 gravity = 0.75
+screen_scroll_x = 0
+screen_scroll_y = 0
+scroll_thresh = 200
 while True:
     window.fill((0, 0, 0))
-    player.move(move_left, move_right)
+    screen_scroll_x, screen_scroll_y = player.move(move_left, move_right)
     player.draw()
     player.update_animation()
     if player.in_air:
@@ -95,5 +185,7 @@ while True:
                 move_left = False
             if EVENT.key == K_RIGHT:
                 move_right = False
-    clock.tick(60)
+            if EVENT.key == K_SPACE:
+                player.jump = False
     display.update()
+    clock.tick(60)
