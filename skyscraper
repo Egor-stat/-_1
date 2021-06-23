@@ -32,6 +32,7 @@ class Player(sprite.Sprite):
         self.height = self.image.get_height()
         self.speed = speed
     def move(self, moving_left, moving_right):
+        global keys_count
         screen_scroll_x = 0
         screen_scroll_y = 0
         dx = 0
@@ -55,48 +56,55 @@ class Player(sprite.Sprite):
         for tile in collision_list:
             if tile.colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
                 dx = 0
-                if keys[K_SPACE]:
-                    dy -= self.vel_y
-                    self.wall_jump = True
-                    self.up_or_down = True
-                else:
-                    if self.up_or_down:
-                        self.up_or_down = False
+                if tile[2] == 40:
+                    if keys[K_SPACE]:
                         dy -= self.vel_y
-                        self.vel_y = 0
+                        self.wall_jump = True
+                        self.up_or_down = True
+                    else:
+                        if self.up_or_down:
+                            self.up_or_down = False
+                            dy -= self.vel_y
+                            self.vel_y = 0
+                if tile[2] == 30:
+                    collision_list.pop(collision_list.index(tile))
+                    keys_count -= 1
+                if tile[2] == 60 and keys_count <= 0:
+                    self.win()
             else:
                 if not moving_left and not moving_right:
-                    self.wall_jump = False
+                    if dy > 10 or tile.colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
+                        self.wall_jump = False
                     if self.up_or_down:
                         self.up_or_down = False
                         self.vel_y = 0
             if tile.colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
-                if self.vel_y < 0:
-                    self.vel_y = 0
-                    dy = tile.bottom - self.rect.top
-                elif self.vel_y >= 0:
-                    self.vel_y = 0
-                    self.in_air = False
-                    dy = tile.top - self.rect.bottom
+                if tile[2] == 40:
+                    if self.vel_y < 0:
+                        self.vel_y = 0
+                        dy = tile.bottom - self.rect.top
+                    elif self.vel_y >= 0:
+                        self.vel_y = 0
+                        self.in_air = False
+                        dy = tile.top - self.rect.bottom
+                if tile[2] == 30:
+                    collision_list.pop(collision_list.index(tile))
+                    keys_count -= 1
+            if enemy_1.rect.colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
+                self.lose()
         self.rect.x += dx
         self.rect.y += dy
         if self.rect.right > 800 - scroll_thresh and moving_right or self.rect.left < scroll_thresh and moving_left:
             self.rect.x -= dx
             screen_scroll_x = -dx
         if self.rect.top < scroll_thresh:
-            if dy > 0:
-                self.rect.y += dy
-                screen_scroll_y = dy
-            if dy < 0:
-                self.rect.y -= dy
-                screen_scroll_y = -dy
+            dy = self.speed
+            self.rect.y += dy
+            screen_scroll_y = dy
         if self.rect.bottom > 600 - scroll_thresh:
-            if dy < 0:
-                self.rect.y += dy
-                screen_scroll_y = dy
-            if dy > 0:
-                self.rect.y -= dy
-                screen_scroll_y = -dy
+            dy = self.speed
+            self.rect.y -= dy
+            screen_scroll_y = -dy
         return screen_scroll_x, screen_scroll_y
     def update_animation(self):
         animation_coldown = 100
@@ -116,28 +124,86 @@ class Player(sprite.Sprite):
         for tile in collision_list:
             tile[0] += screen_scroll_x
             tile[1] += screen_scroll_y
-            window.blit(plat, tile)
+            if tile[2] == 40:
+                window.blit(plat, tile)
+            if tile[2] == 30:
+                window.blit(exit_key, tile)
+            if tile[2] == 60:
+                window.blit(door, tile)
+        enemy_1.rect.x += screen_scroll_x
+        enemy_1.rect.y += screen_scroll_y
+        enemy_1.limit_1 += screen_scroll_y
+        enemy_1.limit_2 += screen_scroll_y
+    def win(self):
+        global finish
+        win_font = font.Font(None, 36)
+        win_font = win_font.render("You win!!!", True, (255, 255, 255))
+        window.blit(win_font, (300, 270))
+        finish = True
+    def lose(self):
+        global finish
+        win_font = font.Font(None, 36)
+        win_font = win_font.render("You lose!!!", True, (255, 255, 255))
+        window.blit(win_font, (300, 270))
+        finish = True
+class Enemy():
+    vector_y = "up"
+    vector_x = "right"
+    def __init__(self, x, y, scale, speed, limit_1, limit_2, vector):
+        self.image = transform.scale(image.load("evil_ball.png"), scale)
+        self.rect = Rect(0, 0, scale[0], scale[1])
+        self.rect[0] = x
+        self.rect[1] = y
+        self.limit_1 = limit_1
+        self.limit_2 = limit_2
+        self.vector = vector
+        self.speed = speed
+    def move(self):
+        if self.vector == "y":
+            if self.vector_y == "up":
+                if self.rect.y >= self.limit_1:
+                    self.rect.y -= self.speed
+                else:
+                    self.vector_y = "down"
+            if self.vector_y == "down":
+                if self.rect.y <= self.limit_2:
+                    self.rect.y += self.speed
+                else:
+                    self.vector_y = "up"
+        if self.vector == "x":
+            if self.vector_x == "left":
+                if self.rect.x >= self.limits_1:
+                    self.rect.x -= self.speed
+                else:
+                    self.vector_x = "right"
+            if self.vector_x == "right":
+                if self.rect.x <= self.limits_2:
+                    self.rect.x += self.speed
+                else:
+                    self.vector_x = "left"
+    def reset(self):
+        window.blit(self.image, (self.rect.x, self.rect.y))
 matrix_map = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1],
     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
     [1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 1, 0, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
     [1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1],
+    [1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1],
     [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1],
     [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1],
     [1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1],
-    [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1],
+    [1, 1, 2, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
     [1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
     [1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1],
     [1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1],
     [1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1],
     [1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1],
     [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1],
-    [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1],
+    [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 2, 0, 0, 0, 1],
     [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1],
     [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
     [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
@@ -148,44 +214,58 @@ collision_list = []
 for y, row in enumerate(matrix_map):
     for x, char in enumerate(row):
         if char:
-            world_map.add((x * 40, y * 40))
-            collision_list.append(Rect(x * 40, y * 40, 40, 40))
+            if char == 1:
+                world_map.add((x * 40, y * 40))
+                collision_list.append(Rect(x * 40, y * 40, 40, 40))
+            if char == 2:
+                collision_list.append(Rect(x * 40, y * 40, 30, 15))
+            if char == 3:
+                collision_list.append(Rect(x * 40, y * 40, 60, 80))
 clock = time.Clock()
 player = Player(60, 80, (30, 60), 5)
 plat = transform.scale(image.load("12.png"), (40, 40))
+exit_key = transform.scale(image.load("key.png"), (30, 15))
+door = transform.scale(image.load("door.png"), (60, 80))
+enemy_1 = Enemy(400, 0, (100, 100), 5, -100, 150, "y")
+keys_count = 4
 move_left = False
 move_right = False
+finish = False
 gravity = 0.75
 screen_scroll_x = 0
 screen_scroll_y = 0
 scroll_thresh = 200
 while True:
-    window.fill((0, 0, 0))
-    screen_scroll_x, screen_scroll_y = player.move(move_left, move_right)
-    player.draw()
-    player.update_animation()
-    if player.in_air:
-        player.update_action(0)
-    elif move_left or move_right:
-        player.update_action(1)
-    else:
-        player.update_action(0)
+    if not finish:
+        window.fill((0, 0, 0))
+        player.draw()
+        enemy_1.move()
+        enemy_1.reset()
+        screen_scroll_x, screen_scroll_y = player.move(move_left, move_right)
+        player.update_animation()
+        if player.in_air:
+            player.update_action(0)
+        elif move_left or move_right:
+            player.update_action(1)
+        else:
+            player.update_action(0)
     for EVENT in event.get():
         if EVENT.type == QUIT:
             exit()
-        if EVENT.type == KEYDOWN:
-            if EVENT.key == K_LEFT:
-                move_left = True
-            if EVENT.key == K_RIGHT:
-                move_right = True
-            if EVENT.key == K_SPACE:
-                player.jump = True
-        if EVENT.type == KEYUP:
-            if EVENT.key == K_LEFT:
-                move_left = False
-            if EVENT.key == K_RIGHT:
-                move_right = False
-            if EVENT.key == K_SPACE:
-                player.jump = False
+        if not finish:
+            if EVENT.type == KEYDOWN:
+                if EVENT.key == K_LEFT:
+                    move_left = True
+                if EVENT.key == K_RIGHT:
+                    move_right = True
+                if EVENT.key == K_SPACE:
+                    player.jump = True
+            if EVENT.type == KEYUP:
+                if EVENT.key == K_LEFT:
+                    move_left = False
+                if EVENT.key == K_RIGHT:
+                    move_right = False
+                if EVENT.key == K_SPACE:
+                    player.jump = False
     display.update()
     clock.tick(60)
