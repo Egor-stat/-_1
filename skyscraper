@@ -33,6 +33,8 @@ class Player(sprite.Sprite):
         self.speed = speed
     def move(self, moving_left, moving_right):
         global keys_count
+        global time_2
+        global lifes_count
         screen_scroll_x = 0
         screen_scroll_y = 0
         dx = 0
@@ -53,6 +55,7 @@ class Player(sprite.Sprite):
             self.wall_jump = False
         self.vel_y += gravity
         dy += self.vel_y
+        time_1 = time.get_ticks()
         for tile in collision_list:
             if tile.colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
                 dx = 0
@@ -90,8 +93,12 @@ class Player(sprite.Sprite):
                 if tile[2] == 30:
                     collision_list.pop(collision_list.index(tile))
                     keys_count -= 1
-            if enemy_1.rect.colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
-                self.lose()
+            for i in enemyes_list:
+                if i.rect.colliderect(self.rect.x, self.rect.y + dy, self.width, self.height) and time_1 - time_2 >= 1000:
+                    time_2 = time.get_ticks()
+                    lifes_count -= 1
+                    if lifes_count <= 0:
+                        self.lose()
         self.rect.x += dx
         self.rect.y += dy
         if self.rect.right > 800 - scroll_thresh and moving_right or self.rect.left < scroll_thresh and moving_left:
@@ -130,22 +137,36 @@ class Player(sprite.Sprite):
                 window.blit(exit_key, tile)
             if tile[2] == 60:
                 window.blit(door, tile)
-        enemy_1.rect.x += screen_scroll_x
-        enemy_1.rect.y += screen_scroll_y
-        enemy_1.limit_1 += screen_scroll_y
-        enemy_1.limit_2 += screen_scroll_y
+        for i in enemyes_list:
+            i.rect.x += screen_scroll_x
+            i.rect.y += screen_scroll_y
+            if i.vector == "y":
+                i.limit_1 += screen_scroll_y
+                i.limit_2 += screen_scroll_y
+            elif i.vector == "x":
+                i.limit_1 += screen_scroll_x
+                i.limit_2 += screen_scroll_x
     def win(self):
         global finish
         win_font = font.Font(None, 36)
         win_font = win_font.render("You win!!!", True, (255, 255, 255))
         window.blit(win_font, (300, 270))
         finish = True
+        mixer.music.stop()
     def lose(self):
         global finish
         win_font = font.Font(None, 36)
         win_font = win_font.render("You lose!!!", True, (255, 255, 255))
         window.blit(win_font, (300, 270))
         finish = True
+        mixer.music.stop()
+    def life_reset(self, lifes_count):
+        reset_lifes_count = 0
+        x_cor = 0
+        while reset_lifes_count < lifes_count:
+            window.blit(life, (x_cor, 0))
+            x_cor += 70
+            reset_lifes_count += 1
 class Enemy():
     vector_y = "up"
     vector_x = "right"
@@ -172,12 +193,12 @@ class Enemy():
                     self.vector_y = "up"
         if self.vector == "x":
             if self.vector_x == "left":
-                if self.rect.x >= self.limits_1:
+                if self.rect.x >= self.limit_1:
                     self.rect.x -= self.speed
                 else:
                     self.vector_x = "right"
             if self.vector_x == "right":
-                if self.rect.x <= self.limits_2:
+                if self.rect.x <= self.limit_2:
                     self.rect.x += self.speed
                 else:
                     self.vector_x = "left"
@@ -209,6 +230,7 @@ matrix_map = [
     [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 ]
+time_2 = time.get_ticks()
 world_map = set()
 collision_list = []
 for y, row in enumerate(matrix_map):
@@ -226,8 +248,18 @@ player = Player(60, 80, (30, 60), 5)
 plat = transform.scale(image.load("12.png"), (40, 40))
 exit_key = transform.scale(image.load("key.png"), (30, 15))
 door = transform.scale(image.load("door.png"), (60, 80))
+life = transform.scale(image.load("life.png"), (70, 70))
 enemy_1 = Enemy(400, 0, (100, 100), 5, -100, 150, "y")
+enemy_2 = Enemy(550, 300, (100, 100), 5, 100, 400, "y")
+enemy_3 = Enemy(1200, 600, (40, 40), 5, 600, 800, "y")
+enemy_4 = Enemy(600, 605, (30, 30), 5, 600, 900, "x")
+enemy_5 = Enemy(450, 760, (90, 90), 5, 770, 1000, "y")
+enemy_6 = Enemy(680, 760, (90, 90), 5, 770, 1000, "y")
+enemy_7 = Enemy(900, 760, (90, 90), 5, 770, 1000, "y")
+enemy_8 = Enemy(0, 640, (60, 60), 5, 0, 280, "x")
+enemyes_list = [enemy_1, enemy_2, enemy_3, enemy_4, enemy_5, enemy_6, enemy_7, enemy_8]
 keys_count = 4
+lifes_count = 3
 move_left = False
 move_right = False
 finish = False
@@ -235,12 +267,17 @@ gravity = 0.75
 screen_scroll_x = 0
 screen_scroll_y = 0
 scroll_thresh = 200
+mixer.init()
+sound = mixer.Sound("platformer_music.ogg")
+
 while True:
     if not finish:
         window.fill((0, 0, 0))
         player.draw()
-        enemy_1.move()
-        enemy_1.reset()
+        player.life_reset(lifes_count)
+        for i in enemyes_list:
+            i.move()
+            i.reset()
         screen_scroll_x, screen_scroll_y = player.move(move_left, move_right)
         player.update_animation()
         if player.in_air:
@@ -252,6 +289,23 @@ while True:
     for EVENT in event.get():
         if EVENT.type == QUIT:
             exit()
+        if not finish:
+            if EVENT.type == KEYDOWN:
+                if EVENT.key == K_LEFT:
+                    move_left = True
+                if EVENT.key == K_RIGHT:
+                    move_right = True
+                if EVENT.key == K_SPACE:
+                    player.jump = True
+            if EVENT.type == KEYUP:
+                if EVENT.key == K_LEFT:
+                    move_left = False
+                if EVENT.key == K_RIGHT:
+                    move_right = False
+                if EVENT.key == K_SPACE:
+                    player.jump = False
+    display.update()
+    clock.tick()
         if not finish:
             if EVENT.type == KEYDOWN:
                 if EVENT.key == K_LEFT:
