@@ -48,6 +48,8 @@ class Player(sprite.Sprite):
             dx = self.speed
             self.flip = False
             self.direction = 1
+        if keys[K_ESCAPE]:
+            exit()
         if self.jump and self.in_air == False or self.wall_jump and moving_left or self.wall_jump and moving_right:
             self.vel_y = -11
             self.jump = False
@@ -127,6 +129,7 @@ class Player(sprite.Sprite):
             self.update_time = time.get_ticks()
             self.index = 0
     def draw(self):
+        window.blit(texture, (0, 0))
         window.blit(transform.flip(self.image, self.flip, False), self.rect)
         for tile in collision_list:
             tile[0] += screen_scroll_x
@@ -204,6 +207,43 @@ class Enemy():
                     self.vector_x = "left"
     def reset(self):
         window.blit(self.image, (self.rect.x, self.rect.y))
+menu_trigger = True
+def menu():
+    global menu_trigger
+    button_font = font.Font(None, 48)
+    label_font = font.Font(None, 140)
+    start = button_font.render("START", 1, (0, 0, 255))
+    button_start = Rect(0, 0, 400, 150)
+    button_start.center = 400, 200
+    exit_button = button_font.render("EXIT", 1, (0, 0, 255))
+    button_exit = Rect(0, 0, 400, 150)
+    button_exit.center = 400, 400
+    while menu_trigger:
+        for e in event.get():
+            if e.type == QUIT:
+                exit()
+        window.blit(texture, (0, 0))
+        draw.rect(window, (0, 0, 0), button_start, 10)
+        window.blit(start, (button_start.centerx - 50, button_start.centery - 20))
+        draw.rect(window, (0, 0, 0), button_exit, 10)
+        window.blit(exit_button, (button_exit.centerx - 40, button_exit.centery - 20))
+        label = label_font.render("SKYSCRAPER", 1, (0, 0, 0))
+        window.blit(label, (55, 30))
+        mouse_pos = mouse.get_pos()
+        mouse_click = mouse.get_pressed()
+        if button_start.collidepoint(mouse_pos):
+            draw.rect(window, (0, 0, 0), button_start)
+            window.blit(start, (button_start.centerx - 50, button_start.centery - 20))
+            if mouse_click[0]:
+                menu_trigger = False
+        elif button_exit.collidepoint(mouse_pos):
+            draw.rect(window, (0, 0, 0), button_exit)
+            window.blit(exit_button, (button_exit.centerx - 40, button_exit.centery - 20))
+            if mouse_click[0]:
+                exit()
+        display.flip()
+        clock.tick()
+
 matrix_map = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1],
@@ -257,6 +297,7 @@ enemy_5 = Enemy(450, 760, (90, 90), 5, 770, 1000, "y")
 enemy_6 = Enemy(680, 760, (90, 90), 5, 770, 1000, "y")
 enemy_7 = Enemy(900, 760, (90, 90), 5, 770, 1000, "y")
 enemy_8 = Enemy(0, 640, (60, 60), 5, 0, 280, "x")
+texture = transform.scale(image.load("texture.jpg"), (800, 600))
 enemyes_list = [enemy_1, enemy_2, enemy_3, enemy_4, enemy_5, enemy_6, enemy_7, enemy_8]
 keys_count = 4
 lifes_count = 3
@@ -267,12 +308,12 @@ gravity = 0.75
 screen_scroll_x = 0
 screen_scroll_y = 0
 scroll_thresh = 200
+menu()
 mixer.init()
-sound = mixer.Sound("platformer_music.ogg")
-
+mixer.music.load("platformer_music.mp3")
+mixer.music.play(-1)
 while True:
     if not finish:
-        window.fill((0, 0, 0))
         player.draw()
         player.life_reset(lifes_count)
         for i in enemyes_list:
@@ -305,21 +346,4 @@ while True:
                 if EVENT.key == K_SPACE:
                     player.jump = False
     display.update()
-    clock.tick()
-        if not finish:
-            if EVENT.type == KEYDOWN:
-                if EVENT.key == K_LEFT:
-                    move_left = True
-                if EVENT.key == K_RIGHT:
-                    move_right = True
-                if EVENT.key == K_SPACE:
-                    player.jump = True
-            if EVENT.type == KEYUP:
-                if EVENT.key == K_LEFT:
-                    move_left = False
-                if EVENT.key == K_RIGHT:
-                    move_right = False
-                if EVENT.key == K_SPACE:
-                    player.jump = False
-    display.update()
-    clock.tick(60)
+    clock.tick(1000)
